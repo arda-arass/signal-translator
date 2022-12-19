@@ -1,7 +1,6 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <vector>
 
 #include <unistd.h>
 #include <getopt.h>
@@ -13,22 +12,31 @@
 namespace plt = matplotlibcpp;
 
 static void usage(){
+    std::cout << "\n----------------------------------------\n";
     std::cout << "./signal-translator\n";
     std::cout << "-h (help)\n";
     std::cout << "--test (reads pre-ready file)\n";
     std::cout << "     Example\n";
     std::cout << "       --test fftdata.txt\n";
+    std::cout << "-f (frequencies)\n";
+    std::cout << "     Example (Hz)\n";
+    std::cout << "        50 100 200\n";
+    std::cout << "-n (add noise)(default: 10 SNR)\n";
+    std::cout << "--snr (specify signal to noise ratio)\n";
     std::cout << "--real (shows real-time spectrum)\n";
-    std::cout << "--power (shows power spectrum)\n";
-    std::cout << "--no-mirror (no mirror attribute for FFT)\n";
+    std::cout << "--freq (shows frequency spectrum)\n";
+    std::cout << "--psd (shows power spectrum density)\n";
+    std::cout << "--no_mirror (no mirror attribute for FFT)\n";
+    std::cout << "-----------------------------------------\n\n";
 }
 
 static struct option options[] = {
     {"test", required_argument, 0, 1},
     {"real", no_argument, 0, 2},
     {"freq", no_argument, 0, 3},
-    {"power", no_argument, 0, 4},
-    {"no_mirror", no_argument, 0 ,5},
+    {"snr", required_argument, 0, 4},
+    {"psd", no_argument, 0, 5},
+    {"no_mirror", no_argument, 0 ,6},
     {0, 0, 0, 0 }
 };
 
@@ -36,7 +44,7 @@ static int parse_opt(int argc, char **argv, DSP &f) {
     int result;
 
     opterr = 0;
-    while((result = getopt_long(argc, argv, "h", options, NULL)) != -1) {
+    while((result = getopt_long(argc, argv, "hfn", options, NULL)) != -1) {
         switch (result) 
         {
         case 1:
@@ -50,14 +58,24 @@ static int parse_opt(int argc, char **argv, DSP &f) {
             f.freq_f = true;
             break; 
         case 4:
-            f.power_f = true;
+            f.snr_f = true;
+            f.snr = strtod(optarg, NULL);
             break;
         case 5:
+            f.power_f = true;
+            break;
+        case 6:
             f.no_mirror = true;
+            break;
+        case 'f':
+            f.freq_val_f = true;
             break;
         case 'h':
             usage();
             return 1;
+        case 'n':
+            f.noise_f = true;
+            break;
         case '?':
             if(optopt != 0)
                 std::cout << "Invalid switch: -" << optopt << std::endl;
@@ -67,6 +85,13 @@ static int parse_opt(int argc, char **argv, DSP &f) {
         default:
             break;
         }
+    }
+
+    if (optind != argc && f.freq_val_f) {
+        f.sn = argc - optind;
+
+        for (int i = optind; i < argc; ++i)
+            f.freq_arr.push_back(strtod(argv[i], NULL));
     }
 
     return 0;
@@ -88,14 +113,32 @@ static void read_file(DSP &d) {
 }
 
 static void plot(DSP &d) {
+    int m = 0, n = 1;
     plt::figure(1);
+
+    if(d.real_f)
+        m += 1;
+    if(d.freq_f)
+        m += 1;
+    if(d.power_f)
+        m += 1;
+
     if(d.real_f) {
-        plt::subplot(2,1,1);
+        plt::subplot(m,1,n);
+        plt::title("Real-Time Spectrum");
         plt::plot(d.real_x,d.real_y);
+        n += 1;
     }
     if(d.freq_f) {
-        plt::subplot(2,1,2);
+        plt::subplot(m,1,n);
+        plt::title("Frequency Spectrum");
         plt::plot(d.fft_x,d.fft_y);
+        n += 1;
+    }
+    if(d.power_f) {
+        plt::subplot(m,1,n);
+        plt::title("Power Spectral Density");
+        plt::plot(d.psd_x,d.psd_y);
     }
     plt::show();
 }
@@ -111,10 +154,17 @@ int main(int argc, char **argv)
 
     if((parse_opt(argc, argv, dsp)) != 0)
         exit(EXIT_FAILURE);
-        
-    read_file(dsp);
 
-    dsp.fftw(dsp);
+    if(dsp.test_f)
+        read_file(dsp);
+    else
+        dsp.createSignal(dsp);
+
+    if(dsp.freq_f)
+        dsp.fftw(dsp);
+
+    if(dsp.power_f)
+        dsp.psd(dsp);
 
     plot(dsp);
 
