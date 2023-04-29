@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 
 project(signal-translator)
 
-add_executable(${PROJECT_NAME} src/main.cpp src/dsp.cpp)
+add_executable(${PROJECT_NAME} src/main.cpp src/plot.cpp src/dsp.cpp src/parse.cpp)
 
 # DOWNLOAD ALL THE SUBMODULES
 find_package(Git QUIET)

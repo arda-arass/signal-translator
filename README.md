@@ -1,6 +1,6 @@
 # signal-translator
 
-* ./make.sh configure
+* ./make.sh configure (release, debug)
 * ./make.sh build
 * sudo ./make.sh run
 
